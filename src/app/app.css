@@ -418,4 +418,9 @@ mat-card:hover {
   .sector-highlight-text {
     font-size: 2rem;
   }
+
+  .dates-grid {
+    grid-template-columns: 1fr; /* Stack dates vertically on mobile */
+    gap: 12px;
+  }
 }
