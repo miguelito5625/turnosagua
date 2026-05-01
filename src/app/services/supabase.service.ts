@@ -39,6 +39,20 @@ export class SupabaseService {
     this.supabase = createClient(environment.supabaseUrl, environment.supabaseKey);
   }
 
+  // ==== AUTH ====
+  async login(email: string, password: string) {
+    return await this.supabase.auth.signInWithPassword({ email, password });
+  }
+
+  async logout() {
+    return await this.supabase.auth.signOut();
+  }
+
+  async getCurrentUser() {
+    const { data } = await this.supabase.auth.getSession();
+    return data.session?.user || null;
+  }
+
   // ==== CONFIGURACIÓN ====
   async getConfigDias(): Promise<number> {
     const { data, error } = await this.supabase

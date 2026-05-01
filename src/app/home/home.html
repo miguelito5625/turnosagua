@@ -1,0 +1,119 @@
+<mat-toolbar color="primary" class="main-toolbar mat-elevation-z6">
+  <mat-icon class="mr-2">water_drop</mat-icon>
+  <span class="brand-title">Turnos Quiriguá</span>
+  <span class="spacer"></span>
+  
+  <button mat-icon-button (click)="toggleTheme()" title="Cambiar Tema">
+    <mat-icon>{{ isDarkMode ? 'light_mode' : 'dark_mode' }}</mat-icon>
+  </button>
+  <button mat-icon-button (click)="openLoginModal()" title="Iniciar Sesión">
+    <mat-icon>login</mat-icon>
+  </button>
+</mat-toolbar>
+
+<div class="main-container">
+  <div class="dashboard-grid">
+    <mat-card class="current-sector-card mat-elevation-z4">
+      <mat-card-header>
+        <div mat-card-avatar class="card-avatar-primary">
+          <mat-icon>pin_drop</mat-icon>
+        </div>
+        <mat-card-title>Sector Actual</mat-card-title>
+        <mat-card-subtitle>Turno activo en este momento</mat-card-subtitle>
+      </mat-card-header>
+      
+      <mat-card-content class="mt-3">
+        <div *ngIf="currentTurn; else noCurrentTurn" class="current-info-box">
+          <h1 class="sector-highlight-text text-primary">{{ currentTurn.sectores?.nombre }}</h1>
+          <mat-divider class="my-3"></mat-divider>
+          <div class="dates-grid">
+            <div class="date-item">
+              <mat-icon color="primary">event</mat-icon>
+              <div class="date-text">
+                <span class="text-muted">Inicio</span>
+                <strong>{{ currentTurn.fecha_inicio | date:'dd \'de\' MMMM \'del\' yyyy' }}</strong>
+              </div>
+            </div>
+            <div class="date-item">
+              <mat-icon color="warn">event_busy</mat-icon>
+              <div class="date-text">
+                <span class="text-muted">Fin</span>
+                <strong>{{ currentTurn.fecha_fin | date:'dd \'de\' MMMM \'del\' yyyy' }}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+        <ng-template #noCurrentTurn>
+          <div class="empty-state-box">
+            <mat-icon class="empty-icon">water_off</mat-icon>
+            <p>No hay un turno activo actualmente.</p>
+          </div>
+        </ng-template>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="queue-card mat-elevation-z4">
+      <mat-card-header>
+        <div mat-card-avatar class="card-avatar-accent">
+          <mat-icon>queue</mat-icon>
+        </div>
+        <mat-card-title>Próximos Sectores</mat-card-title>
+        <mat-card-subtitle>Cola de rotación programada</mat-card-subtitle>
+      </mat-card-header>
+      
+      <mat-card-content class="mt-2">
+        <mat-list *ngIf="queue.length > 0; else noQueue" class="queue-list">
+          <mat-list-item *ngFor="let sector of queue; let i = index">
+            <span matListItemAvatar class="queue-avatar">{{ i + 1 }}</span>
+            <h3 matListItemTitle class="fw-bold">{{ sector.nombre }}</h3>
+            <p matListItemLine *ngIf="sector.estimado_inicio && sector.estimado_fin" class="text-muted">
+              <mat-icon class="inline-icon">calendar_today</mat-icon> 
+              {{ sector.estimado_inicio | date:'dd/MMM' }} - {{ sector.estimado_fin | date:'dd/MMM' }}
+            </p>
+          </mat-list-item>
+        </mat-list>
+        <ng-template #noQueue>
+          <div class="empty-state-box">
+            <mat-icon class="empty-icon">event_note</mat-icon>
+            <p>No hay sectores en la cola.</p>
+          </div>
+        </ng-template>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>
+
+<div class="custom-overlay" *ngIf="showLoginModal">
+  <mat-card class="modal-card mat-elevation-z12 fade-in-up">
+    <mat-card-header>
+      <div mat-card-avatar>
+        <mat-icon color="primary">login</mat-icon>
+      </div>
+      <mat-card-title>Iniciar Sesión</mat-card-title>
+    </mat-card-header>
+    <mat-card-content class="pt-3">
+      <div *ngIf="loginError" class="alert alert-danger mb-3" style="color: red; display: flex; align-items: center; gap: 8px;">
+        <mat-icon>error</mat-icon>
+        <span>{{ loginError }}</span>
+      </div>
+      <mat-form-field appearance="outline" class="full-width mt-2">
+        <mat-label>Correo Electrónico</mat-label>
+        <input matInput type="email" [(ngModel)]="loginEmail">
+        <mat-icon matSuffix>email</mat-icon>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="full-width mt-2">
+        <mat-label>Contraseña</mat-label>
+        <input matInput type="password" [(ngModel)]="loginPassword" (keyup.enter)="login()">
+        <mat-icon matSuffix>lock</mat-icon>
+      </mat-form-field>
+    </mat-card-content>
+    <mat-card-actions align="end" class="p-3">
+      <button mat-button (click)="closeLoginModal()">Cancelar</button>
+      <button mat-flat-button color="primary" [disabled]="!loginEmail || !loginPassword" (click)="login()">Ingresar</button>
+    </mat-card-actions>
+  </mat-card>
+</div>
+
+<div class="loading-overlay-global fade-in" *ngIf="loading">
+  <mat-spinner diameter="60" color="primary"></mat-spinner>
+</div>
