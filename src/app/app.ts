@@ -47,7 +47,7 @@ export class AppComponent implements OnInit, OnDestroy {
   currentView: 'dashboard' | 'sectores' | 'historico' = 'dashboard';
   showConfigModal = false;
   configDias = 2;
-  
+
   // ==== MODAL ROTACIÓN MANUAL ====
   showRotateModal = false;
   rotacionJustificacion = '';
@@ -68,7 +68,7 @@ export class AppComponent implements OnInit, OnDestroy {
     private supabaseService: SupabaseService,
     private cdr: ChangeDetectorRef,
     @Inject(PLATFORM_ID) private platformId: Object
-  ) {}
+  ) { }
 
   toggleTheme() {
     this.isDarkMode = !this.isDarkMode;
@@ -89,7 +89,7 @@ export class AppComponent implements OnInit, OnDestroy {
     // -> NOTA: Para cambiarlo a una hora, debes cambiar el número 60000 por 3600000
     this.refreshIntervalId = setInterval(() => {
       this.loadData(false); // Carga silenciosa, sin mostrar la animación
-    }, 60000);
+    }, 3600000);
   }
 
   ngOnDestroy() {
@@ -102,11 +102,11 @@ export class AppComponent implements OnInit, OnDestroy {
     if (showLoading) {
       this.loading = true;
     }
-    
+
     try {
       // Check and rotate turn first to ensure we have the most up-to-date data
       await this.supabaseService.checkAndRotateTurn();
-      
+
       // Fetch current turn and queue
       const [turn, upcoming, dias] = await Promise.all([
         this.supabaseService.getCurrentTurn(),
@@ -125,7 +125,7 @@ export class AppComponent implements OnInit, OnDestroy {
           const inicio = new Date(currentStartDate);
           const fin = new Date(inicio);
           fin.setDate(fin.getDate() + dias - 1);
-          
+
           sector.estimado_inicio = inicio;
           sector.estimado_fin = fin;
 
