@@ -47,14 +47,14 @@
                 <mat-icon color="primary">event</mat-icon>
                 <div class="date-text">
                   <span class="text-muted">Inicio</span>
-                  <strong>{{ currentTurn.fecha_inicio | date:'dd/MM/yyyy' }}</strong>
+                  <strong>{{ currentTurn.fecha_inicio | date:'dd \'de\' MMMM \'del\' yyyy' }}</strong>
                 </div>
               </div>
               <div class="date-item">
                 <mat-icon color="warn">event_busy</mat-icon>
                 <div class="date-text">
                   <span class="text-muted">Fin</span>
-                  <strong>{{ currentTurn.fecha_fin | date:'dd/MM/yyyy' }}</strong>
+                  <strong>{{ currentTurn.fecha_fin | date:'dd \'de\' MMMM \'del\' yyyy' }}</strong>
                 </div>
               </div>
             </div>

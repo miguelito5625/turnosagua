@@ -39,6 +39,19 @@ INSERT INTO sectores (nombre, posicion) VALUES
 ('Sector Oeste', 4)
 ON CONFLICT (posicion) DO NOTHING;
 
+INSERT INTO sectores (nombre, posicion) VALUES
+('Motorizada', 1),
+('Toltec Centro', 2),
+('Príncipe de Paz', 3),
+('Trinchantes', 4),
+('La Estación', 5),
+('El Zunzo', 6),
+('Km 204', 7),
+('Las Joyas', 8),
+('Quiriguá Ábajo', 9)
+ON CONFLICT (posicion) DO NOTHING;
+
+
 -- Seed data for configuracion
 INSERT INTO configuracion (id, dias) VALUES (1, 2)
 ON CONFLICT (id) DO UPDATE SET dias = EXCLUDED.dias;
