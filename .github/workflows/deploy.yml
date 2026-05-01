@@ -23,7 +23,7 @@ jobs:
 
     - name: Build
       # Usamos el comando para generar los archivos de producción
-      run: npx ng build --configuration production --base-href /turnoagua/
+      run: npx ng build --configuration production --base-href /turnosagua/
 
     - name: Fix for GitHub Pages 404
       # Esto ayuda a que las rutas de Angular funcionen si refrescas la página
