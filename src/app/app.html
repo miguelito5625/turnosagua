@@ -6,13 +6,13 @@
   
   <div class="nav-links">
     <button mat-button [class.active-nav]="currentView === 'dashboard'" (click)="changeView('dashboard')">
-      <mat-icon>dashboard</mat-icon> Inicio
+      <mat-icon>dashboard</mat-icon> <span class="nav-text">Inicio</span>
     </button>
     <button mat-button [class.active-nav]="currentView === 'sectores'" (click)="changeView('sectores')">
-      <mat-icon>view_list</mat-icon> Sectores
+      <mat-icon>view_list</mat-icon> <span class="nav-text">Sectores</span>
     </button>
     <button mat-button [class.active-nav]="currentView === 'historico'" (click)="changeView('historico')">
-      <mat-icon>history</mat-icon> Histórico
+      <mat-icon>history</mat-icon> <span class="nav-text">Histórico</span>
     </button>
   </div>
 
