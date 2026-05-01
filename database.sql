@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS sectores (
 );
 
 -- Create turns table
-CREATE TABLE IF NOT EXISTS turnos (
+CREATE TABLE IF NOT EXISTS turno (
     id SERIAL PRIMARY KEY,
     sector_id INTEGER REFERENCES sectores(id) ON DELETE CASCADE,
     fecha_inicio DATE NOT NULL,
@@ -17,12 +17,13 @@ CREATE TABLE IF NOT EXISTS turnos (
 -- Create history table to track changes
 CREATE TABLE IF NOT EXISTS historico_turnos (
     id SERIAL PRIMARY KEY,
-    turno_id INTEGER REFERENCES turnos(id) ON DELETE CASCADE,
+    turno_id INTEGER REFERENCES turno(id) ON DELETE CASCADE,
     fecha_cambio TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     sector_nombre TEXT NOT NULL,
     descripcion TEXT,
     fecha_inicio DATE NOT NULL,
-    fecha_fin DATE NOT NULL
+    fecha_fin DATE NOT NULL,
+    tipo TEXT DEFAULT 'Automática'
 );
 
 -- Create configuration table
@@ -62,7 +63,7 @@ ON CONFLICT (id) DO UPDATE SET dias = EXCLUDED.dias;
 -- ==============================================================
 /*
 DROP TABLE IF EXISTS historico_turnos CASCADE;
-DROP TABLE IF EXISTS turnos CASCADE;
+DROP TABLE IF EXISTS turno CASCADE;
 DROP TABLE IF EXISTS sectores CASCADE;
 DROP TABLE IF EXISTS configuracion CASCADE;
 */

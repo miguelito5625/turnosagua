@@ -27,6 +27,7 @@ export interface Historico {
   descripcion: string;
   fecha_inicio: string;
   fecha_fin: string;
+  tipo: string;
 }
 
 @Injectable({
@@ -146,40 +147,34 @@ export class SupabaseService {
 
       const actualDias = config.dias;
 
-      const { data: lastTurnArray, error: turnError } = await this.supabase
-        .from('turnos')
+      const { data: turn, error: turnError } = await this.supabase
+        .from('turno')
         .select('*, sectores(nombre, posicion)')
-        .order('fecha_inicio', { ascending: false })
-        .limit(1);
+        .limit(1)
+        .maybeSingle();
 
       if (turnError) {
-        console.error('checkAndRotateTurn: Error fetching last turn', turnError);
+        console.error('checkAndRotateTurn: Error fetching turn', turnError);
         return;
       }
-      console.log('checkAndRotateTurn: Last turn fetched:', lastTurnArray);
+      console.log('checkAndRotateTurn: Turn fetched:', turn);
 
-      if (!lastTurnArray || lastTurnArray.length === 0) {
+      if (!turn) {
         await this.initializeFirstTurn(actualDias);
         return;
       }
 
-      const lastTurn = lastTurnArray[0];
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const fechaFin = new Date(lastTurn.fecha_fin);
+      const fechaFin = new Date(turn.fecha_fin);
       fechaFin.setHours(0, 0, 0, 0);
 
       if (today > fechaFin) {
         // Turn expired!
-        await this.supabase
-          .from('turnos')
-          .update({ estado: 'inactivo' })
-          .eq('id', lastTurn.id);
+        const currentSectorPos = turn.sectores?.posicion || 0;
 
-        const currentSectorPos = lastTurn.sectores?.posicion || 0;
-
-        const { data: nextSector, error: sectorError } = await this.supabase
+        let { data: nextSector, error: sectorError } = await this.supabase
           .from('sectores')
           .select('id, nombre, posicion')
           .gt('posicion', currentSectorPos)
@@ -189,19 +184,17 @@ export class SupabaseService {
 
         if (sectorError || !nextSector) {
           console.log('checkAndRotateTurn: No next sector found, looking for first sector...');
-        	const { data: firstSector } = await this.supabase
+          const { data: firstSector } = await this.supabase
               .from('sectores')
               .select('id, nombre, posicion')
               .order('posicion', { ascending: true })
               .limit(1)
               .single();
+          nextSector = firstSector;
+        }
 
-          if (firstSector) {
-            console.log('checkAndRotateTurn: Found first sector:', firstSector);
-            await this.createNextTurn(firstSector.id, actualDias);
-          }
-        } else {
-          await this.createNextTurn(nextSector.id, actualDias);
+        if (nextSector) {
+          await this.createNextTurn(turn, nextSector.id, actualDias, 'Rotación automática', 'Automática', today);
         }
       }
     } catch (error) {
@@ -221,62 +214,71 @@ export class SupabaseService {
 
     if (firstSector) {
       console.log('initializeFirstTurn: First sector found:', firstSector);
-      await this.createNextTurn(firstSector.id, dias);
+      await this.createNextTurn(null, firstSector.id, dias, 'Inicio del sistema', 'Automática', new Date());
     }
     console.log('initializeFirstTurn: Finished.');
   }
 
-  async createNextTurn(sectorId: number, dias: number, justificacion: string = 'Cambio de turno automático'): Promise<void> {
+  async createNextTurn(currentTurn: Turno | null, sectorId: number, dias: number, justificacion: string = 'Rotación automática', tipo: string = 'Automática', rotationDate: Date = new Date()): Promise<void> {
     console.log(`createNextTurn: Starting for sector ${sectorId}...`);
-    const fechaInicio = new Date();
-    fechaInicio.setHours(0, 0, 0, 0);
+    rotationDate.setHours(0, 0, 0, 0);
 
+    const fechaInicio = new Date(rotationDate);
     const fechaFin = new Date(fechaInicio);
-    // Si dura 2 días, la fecha fin es el mismo día + 1 (ej: 30 y 01).
     fechaFin.setDate(fechaInicio.getDate() + dias - 1);
 
-    const { data: newTurn, error: insertError } = await this.supabase
-      .from('turnos')
-      .insert({
-        sector_id: sectorId,
-        fecha_inicio: fechaInicio.toISOString().split('T')[0],
-        fecha_fin: fechaFin.toISOString().split('T')[0],
-        estado: 'activo'
-      })
-      .select('id')
-      .single();
-
-    if (insertError || !newTurn) {
-      console.error('Error inserting turn:', insertError);
-      return;
-    }
-    console.log('createNextTurn: New turn created:', newTurn);
-
-    const { data: sector } = await this.supabase
-      .from('sectores')
-      .select('nombre')
-      .eq('id', sectorId)
-      .single();
-
-    if (sector) {
+    // Save exiting turn to history
+    if (currentTurn && currentTurn.sectores) {
       await this.supabase.from('historico_turnos').insert({
-        turno_id: newTurn.id,
-        sector_nombre: sector.nombre,
+        turno_id: currentTurn.id,
+        sector_nombre: currentTurn.sectores.nombre,
         descripcion: justificacion,
-        fecha_inicio: fechaInicio.toISOString().split('T')[0],
-        fecha_fin: fechaFin.toISOString().split('T')[0]
+        fecha_inicio: currentTurn.fecha_inicio,
+        fecha_fin: rotationDate.toISOString().split('T')[0],
+        tipo: tipo
       });
-      console.log('createNextTurn: Historical record added.');
+      console.log('createNextTurn: Historical record added for exiting turn.');
     }
-    console.log('createNextTurn: Operation finished.');
+
+    if (currentTurn) {
+      // Update the existing single turn record
+      const { error: updateError } = await this.supabase
+        .from('turno')
+        .update({
+          sector_id: sectorId,
+          fecha_inicio: fechaInicio.toISOString().split('T')[0],
+          fecha_fin: fechaFin.toISOString().split('T')[0],
+          estado: 'activo'
+        })
+        .eq('id', currentTurn.id);
+
+      if (updateError) {
+        console.error('Error updating turn:', updateError);
+        return;
+      }
+      console.log('createNextTurn: Turn updated.');
+    } else {
+      // Create initial turn record
+      const { error: insertError } = await this.supabase
+        .from('turno')
+        .insert({
+          sector_id: sectorId,
+          fecha_inicio: fechaInicio.toISOString().split('T')[0],
+          fecha_fin: fechaFin.toISOString().split('T')[0],
+          estado: 'activo'
+        });
+
+      if (insertError) {
+        console.error('Error inserting initial turn:', insertError);
+        return;
+      }
+      console.log('createNextTurn: Initial turn created.');
+    }
   }
 
   async rotateTurnManually(justificacion: string): Promise<boolean> {
     const lastTurn = await this.getCurrentTurn();
     if (!lastTurn) return false;
-
-    // Inactivar turno actual
-    await this.supabase.from('turnos').update({ estado: 'inactivo' }).eq('id', lastTurn.id);
 
     const actualDias = await this.getConfigDias();
     const currentSectorPos = lastTurn.sectores?.posicion || 0;
@@ -300,16 +302,22 @@ export class SupabaseService {
     }
 
     if (nextSector) {
-      await this.createNextTurn(nextSector.id, actualDias, justificacion);
+      const today = new Date();
+      await this.createNextTurn(lastTurn, nextSector.id, actualDias, justificacion, 'Manual', today);
       return true;
     }
     return false;
   }
 
-  async getHistorico(): Promise<Historico[]> {
+  async getHistorico(startDate: Date, endDate: Date): Promise<Historico[]> {
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
     const { data, error } = await this.supabase
       .from('historico_turnos')
       .select('*')
+      .gte('fecha_cambio', startDate.toISOString())
+      .lte('fecha_cambio', end.toISOString())
       .order('fecha_cambio', { ascending: false });
       
     if (error) {
@@ -322,9 +330,9 @@ export class SupabaseService {
   async getCurrentTurn(): Promise<Turno | null> {
     console.log('getCurrentTurn: Fetching...');
     const { data, error } = await this.supabase
-      .from('turnos')
+      .from('turno')
       .select('*, sectores(nombre, posicion)')
-      .eq('estado', 'activo')
+      .limit(1)
       .maybeSingle();
 
     if (error) {

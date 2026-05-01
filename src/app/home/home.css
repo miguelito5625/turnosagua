@@ -32,6 +32,11 @@
   color: white !important;
 }
 
+.main-toolbar mat-icon,
+.main-toolbar .mat-mdc-icon-button {
+  color: white !important;
+}
+
 .brand-title {
   font-weight: 700;
   font-size: 1.2rem;
@@ -382,6 +387,26 @@ mat-card:hover {
 }
 
 .dark .badge {
+  background-color: rgba(64, 169, 255, 0.2);
+  color: #85a5ff;
+}
+
+.bg-manual {
+  background-color: var(--mat-sys-error-container, #fdeded);
+  color: var(--mat-sys-on-error-container, #d32f2f);
+}
+
+.dark .bg-manual {
+  background-color: rgba(244, 67, 54, 0.2);
+  color: #ff8a80;
+}
+
+.bg-auto {
+  background-color: var(--mat-sys-tertiary-container, #e3f2fd);
+  color: var(--mat-sys-on-tertiary-container, #0d47a1);
+}
+
+.dark .bg-auto {
   background-color: rgba(64, 169, 255, 0.2);
   color: #85a5ff;
 }

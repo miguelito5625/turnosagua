@@ -16,6 +16,8 @@ import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
 
 @Component({
   selector: 'app-admin',
@@ -33,7 +35,9 @@ import { MatDividerModule } from '@angular/material/divider';
     MatInputModule,
     MatFormFieldModule,
     MatProgressSpinnerModule,
-    MatDividerModule
+    MatDividerModule,
+    MatDatepickerModule,
+    MatNativeDateModule
   ],
   templateUrl: './admin.html',
   styleUrl: './admin.css'
@@ -55,6 +59,8 @@ export class Admin implements OnInit, OnDestroy {
 
   // ==== HISTORIAL ====
   historicoList: Historico[] = [];
+  historicoStartDate: Date = new Date();
+  historicoEndDate: Date = new Date();
 
   // ==== CRUD SECTORES ====
   sectoresList: Sector[] = [];
@@ -70,7 +76,9 @@ export class Admin implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private router: Router,
     @Inject(PLATFORM_ID) private platformId: Object
-  ) { }
+  ) {
+    this.historicoStartDate.setMonth(this.historicoStartDate.getMonth() - 1);
+  }
 
   async logout() {
     await this.supabaseService.logout();
@@ -168,9 +176,51 @@ export class Admin implements OnInit, OnDestroy {
   // ==== HISTORIAL ====
   async loadHistorico() {
     this.loading = true;
-    this.historicoList = await this.supabaseService.getHistorico();
+    this.historicoList = await this.supabaseService.getHistorico(this.historicoStartDate, this.historicoEndDate);
     this.loading = false;
     this.cdr.detectChanges();
+  }
+
+  onDateChange() {
+    if (this.historicoStartDate && this.historicoEndDate) {
+      this.loadHistorico();
+    }
+  }
+
+  exportToCSV() {
+    if (this.historicoList.length === 0) return;
+
+    const headers = ['Fecha/Hora', 'Sector', 'Fecha Inicio', 'Fecha Fin', 'Tipo', 'Justificación'];
+    
+    const csvRows = [];
+    csvRows.push(headers.join(','));
+
+    this.historicoList.forEach(item => {
+      const fechaCambio = new Date(item.fecha_cambio).toLocaleString();
+      const descripcion = item.descripcion ? `"${item.descripcion.replace(/"/g, '""')}"` : '';
+      
+      const row = [
+        `"${fechaCambio}"`,
+        `"${item.sector_nombre}"`,
+        item.fecha_inicio,
+        item.fecha_fin,
+        item.tipo,
+        descripcion
+      ];
+      csvRows.push(row.join(','));
+    });
+
+    // Añadir BOM para que Excel detecte correctamente el UTF-8
+    const csvContent = "\uFEFF" + csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `historico_turnos_${this.historicoStartDate.toISOString().split('T')[0]}_al_${this.historicoEndDate.toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
   // ==== ROTACIÓN MANUAL ====
