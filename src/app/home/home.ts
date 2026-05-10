@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, ChangeDetectorRef, Inject, PLATFORM_ID } 
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { SupabaseService, Turno, Sector } from '../services/supabase.service';
+import { SupabaseService, Turno, Sector, Historico } from '../services/supabase.service';
 
 // Angular Material Imports
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -15,6 +15,9 @@ import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatTableModule } from '@angular/material/table';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
 
 @Component({
   selector: 'app-home',
@@ -31,7 +34,10 @@ import { MatDividerModule } from '@angular/material/divider';
     MatInputModule,
     MatFormFieldModule,
     MatProgressSpinnerModule,
-    MatDividerModule
+    MatDividerModule,
+    MatTableModule,
+    MatDatepickerModule,
+    MatNativeDateModule
   ],
   templateUrl: './home.html',
   styleUrl: './home.css'
@@ -42,6 +48,12 @@ export class Home implements OnInit, OnDestroy {
   loading = true;
   private refreshIntervalId: any;
   isDarkMode = false;
+  currentView: 'dashboard' | 'historico' = 'dashboard';
+
+  // ==== HISTORIAL ====
+  historicoList: Historico[] = [];
+  historicoStartDate: Date = new Date();
+  historicoEndDate: Date = new Date();
 
   // Login
   showLoginModal = false;
@@ -54,7 +66,9 @@ export class Home implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private router: Router,
     @Inject(PLATFORM_ID) private platformId: Object
-  ) { }
+  ) {
+    this.historicoStartDate.setMonth(this.historicoStartDate.getMonth() - 1);
+  }
 
   toggleTheme() {
     this.isDarkMode = !this.isDarkMode;
@@ -92,7 +106,6 @@ export class Home implements OnInit, OnDestroy {
     if (showLoading) this.loading = true;
 
     try {
-      await this.supabaseService.checkAndRotateTurn();
       const [turn, upcoming, dias] = await Promise.all([
         this.supabaseService.getCurrentTurn(),
         this.supabaseService.getUpcomingQueue(),
@@ -115,12 +128,38 @@ export class Home implements OnInit, OnDestroy {
       }
 
       this.currentTurn = turn;
+      if (this.currentTurn && this.currentTurn.estado === 'inactivo') {
+        this.currentTurn.justificacion_pausa = await this.supabaseService.getUltimaJustificacionPausa(this.currentTurn.id);
+      }
+
       this.queue = upcoming;
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
       if (showLoading) this.loading = false;
       this.cdr.detectChanges();
+    }
+  }
+
+  // ==== NAVEGACIÓN ====
+  changeView(view: 'dashboard' | 'historico') {
+    this.currentView = view;
+    if (view === 'historico') {
+      this.loadHistorico();
+    }
+  }
+
+  // ==== HISTORIAL ====
+  async loadHistorico() {
+    this.loading = true;
+    this.historicoList = await this.supabaseService.getHistorico(this.historicoStartDate, this.historicoEndDate);
+    this.loading = false;
+    this.cdr.detectChanges();
+  }
+
+  onDateChange() {
+    if (this.historicoStartDate && this.historicoEndDate) {
+      this.loadHistorico();
     }
   }
 

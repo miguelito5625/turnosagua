@@ -55,9 +55,13 @@
               </div>
               <div class="date-item">
                 <mat-icon color="warn">event_busy</mat-icon>
-                <div class="date-text">
+                <div class="date-text" *ngIf="currentTurn.estado === 'activo'">
                   <span class="text-muted">Fin</span>
                   <strong>{{ currentTurn.fecha_fin | date:'dd \'de\' MMMM \'del\' yyyy' }}</strong>
+                </div>
+                <div class="date-text" *ngIf="currentTurn.estado === 'inactivo'">
+                  <span class="text-muted">Estado</span>
+                  <strong class="text-warn">Pausado: {{ currentTurn.justificacion_pausa }}</strong>
                 </div>
               </div>
             </div>
@@ -71,6 +75,12 @@
         </mat-card-content>
 
         <mat-card-actions *ngIf="currentTurn" align="end" class="p-3">
+          <button mat-stroked-button color="primary" *ngIf="currentTurn.estado === 'activo'" (click)="openPausaModal()" class="mr-2">
+            <mat-icon>pause</mat-icon> Pausar Turno
+          </button>
+          <button mat-stroked-button color="primary" *ngIf="currentTurn.estado === 'inactivo'" (click)="openReanudarModal()" class="mr-2">
+            <mat-icon>play_arrow</mat-icon> Reanudar Turno
+          </button>
           <button mat-stroked-button color="accent" (click)="openRotateModal()">
             <mat-icon>rotate_right</mat-icon> Rotar Manualmente
           </button>
@@ -339,6 +349,56 @@
       <button mat-button (click)="closeRotateModal()">Cancelar</button>
       <button mat-flat-button color="warn" [disabled]="!rotacionJustificacion" (click)="confirmarRotacion()">Confirmar
         Rotación</button>
+    </mat-card-actions>
+  </mat-card>
+</div>
+
+<!-- Modal Pausar Turno -->
+<div class="custom-overlay" *ngIf="showPausaModal">
+  <mat-card class="modal-card mat-elevation-z12 fade-in-up">
+    <mat-card-header>
+      <div mat-card-avatar>
+        <mat-icon color="primary">pause</mat-icon>
+      </div>
+      <mat-card-title>Pausar Turno Actual</mat-card-title>
+    </mat-card-header>
+    <mat-card-content class="pt-3">
+      <p class="text-muted">Ingresa la justificación para pausar el turno:</p>
+      <mat-form-field appearance="outline" class="full-width mt-2">
+        <mat-label>Justificación</mat-label>
+        <textarea matInput [(ngModel)]="pausaJustificacion" rows="4"
+          placeholder="Ej: Mantenimiento de bomba..."></textarea>
+      </mat-form-field>
+    </mat-card-content>
+    <mat-card-actions align="end" class="p-3">
+      <button mat-button (click)="closePausaModal()">Cancelar</button>
+      <button mat-flat-button color="primary" [disabled]="!pausaJustificacion" (click)="confirmarPausa()">Confirmar
+        Pausa</button>
+    </mat-card-actions>
+  </mat-card>
+</div>
+
+<!-- Modal Reanudar Turno -->
+<div class="custom-overlay" *ngIf="showReanudarModal">
+  <mat-card class="modal-card mat-elevation-z12 fade-in-up">
+    <mat-card-header>
+      <div mat-card-avatar>
+        <mat-icon color="primary">play_arrow</mat-icon>
+      </div>
+      <mat-card-title>Reanudar Turno Actual</mat-card-title>
+    </mat-card-header>
+    <mat-card-content class="pt-3">
+      <p class="text-muted">Ingresa la justificación para reanudar el turno:</p>
+      <mat-form-field appearance="outline" class="full-width mt-2">
+        <mat-label>Justificación</mat-label>
+        <textarea matInput [(ngModel)]="reanudarJustificacion" rows="4"
+          placeholder="Ej: Reparación finalizada..."></textarea>
+      </mat-form-field>
+    </mat-card-content>
+    <mat-card-actions align="end" class="p-3">
+      <button mat-button (click)="closeReanudarModal()">Cancelar</button>
+      <button mat-flat-button color="primary" [disabled]="!reanudarJustificacion" (click)="confirmarReanudacion()">Confirmar
+        Reanudación</button>
     </mat-card-actions>
   </mat-card>
 </div>

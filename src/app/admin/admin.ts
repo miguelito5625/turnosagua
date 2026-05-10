@@ -57,6 +57,13 @@ export class Admin implements OnInit, OnDestroy {
   showRotateModal = false;
   rotacionJustificacion = '';
 
+  // ==== MODAL PAUSA / REANUDAR ====
+  showPausaModal = false;
+  pausaJustificacion = '';
+  
+  showReanudarModal = false;
+  reanudarJustificacion = '';
+
   // ==== HISTORIAL ====
   historicoList: Historico[] = [];
   historicoStartDate: Date = new Date();
@@ -119,9 +126,6 @@ export class Admin implements OnInit, OnDestroy {
     }
 
     try {
-      // Check and rotate turn first to ensure we have the most up-to-date data
-      await this.supabaseService.checkAndRotateTurn();
-
       // Fetch current turn and queue
       const [turn, upcoming, dias] = await Promise.all([
         this.supabaseService.getCurrentTurn(),
@@ -151,6 +155,10 @@ export class Admin implements OnInit, OnDestroy {
       }
 
       this.currentTurn = turn;
+      if (this.currentTurn && this.currentTurn.estado === 'inactivo') {
+        this.currentTurn.justificacion_pausa = await this.supabaseService.getUltimaJustificacionPausa(this.currentTurn.id);
+      }
+
       this.queue = upcoming;
       this.configDias = dias;
     } catch (error) {
@@ -245,6 +253,59 @@ export class Admin implements OnInit, OnDestroy {
       await this.loadData(false); // Recargar
     } else {
       alert('Error al intentar rotar el turno. Intenta nuevamente.');
+    }
+    this.loading = false;
+    this.cdr.detectChanges();
+  }
+
+  // ==== PAUSA / REANUDAR ====
+  openPausaModal() {
+    this.pausaJustificacion = '';
+    this.showPausaModal = true;
+  }
+
+  closePausaModal() {
+    this.showPausaModal = false;
+  }
+
+  async confirmarPausa() {
+    if (!this.pausaJustificacion) {
+      alert('La justificación es requerida para pausar el turno.');
+      return;
+    }
+    this.loading = true;
+    const success = await this.supabaseService.pausarTurno(this.pausaJustificacion);
+    if (success) {
+      this.showPausaModal = false;
+      await this.loadData(false);
+    } else {
+      alert('Error al intentar pausar el turno. Intenta nuevamente.');
+    }
+    this.loading = false;
+    this.cdr.detectChanges();
+  }
+
+  openReanudarModal() {
+    this.reanudarJustificacion = '';
+    this.showReanudarModal = true;
+  }
+
+  closeReanudarModal() {
+    this.showReanudarModal = false;
+  }
+
+  async confirmarReanudacion() {
+    if (!this.reanudarJustificacion) {
+      alert('La justificación es requerida para reanudar el turno.');
+      return;
+    }
+    this.loading = true;
+    const success = await this.supabaseService.reanudarTurno(this.reanudarJustificacion);
+    if (success) {
+      this.showReanudarModal = false;
+      await this.loadData(false);
+    } else {
+      alert('Error al intentar reanudar el turno. Intenta nuevamente.');
     }
     this.loading = false;
     this.cdr.detectChanges();

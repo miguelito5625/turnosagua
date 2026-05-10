@@ -17,6 +17,7 @@ export interface Turno {
   fecha_fin: string;
   estado: string;
   sectores?: { nombre: string; posicion: number };
+  justificacion_pausa?: string;
 }
 
 export interface Historico {
@@ -130,94 +131,6 @@ export class SupabaseService {
   }
 
   // ==== TURNOS ====
-  async checkAndRotateTurn(): Promise<void> {
-    try {
-      console.log('checkAndRotateTurn: Starting operation...');
-      console.log('checkAndRotateTurn: Fetching config...');
-      const { data: config, error: configError } = await this.supabase
-        .from('configuracion')
-        .select('dias')
-        .single();
-
-      if (configError || !config) {
-        console.error('checkAndRotateTurn: Error or no config', configError);
-        return;
-      }
-      console.log('checkAndRotateTurn: Config loaded:', config);
-
-      const actualDias = config.dias;
-
-      const { data: turn, error: turnError } = await this.supabase
-        .from('turno')
-        .select('*, sectores(nombre, posicion)')
-        .limit(1)
-        .maybeSingle();
-
-      if (turnError) {
-        console.error('checkAndRotateTurn: Error fetching turn', turnError);
-        return;
-      }
-      console.log('checkAndRotateTurn: Turn fetched:', turn);
-
-      if (!turn) {
-        await this.initializeFirstTurn(actualDias);
-        return;
-      }
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      const fechaFin = new Date(turn.fecha_fin);
-      fechaFin.setHours(0, 0, 0, 0);
-
-      if (today > fechaFin) {
-        // Turn expired!
-        const currentSectorPos = turn.sectores?.posicion || 0;
-
-        let { data: nextSector, error: sectorError } = await this.supabase
-          .from('sectores')
-          .select('id, nombre, posicion')
-          .gt('posicion', currentSectorPos)
-          .order('posicion', { ascending: true })
-          .limit(1)
-          .single();
-
-        if (sectorError || !nextSector) {
-          console.log('checkAndRotateTurn: No next sector found, looking for first sector...');
-          const { data: firstSector } = await this.supabase
-              .from('sectores')
-              .select('id, nombre, posicion')
-              .order('posicion', { ascending: true })
-              .limit(1)
-              .single();
-          nextSector = firstSector;
-        }
-
-        if (nextSector) {
-          await this.createNextTurn(turn, nextSector.id, actualDias, 'Rotación automática', 'Automática', today);
-        }
-      }
-    } catch (error) {
-      console.error('Error in checkAndRotateTurn:', error);
-    }
-    console.log('checkAndRotateTurn: Operation finished.');
-  }
-
-  async initializeFirstTurn(dias: number): Promise<void> {
-    console.log('initializeFirstTurn: Starting...');
-    const { data: firstSector } = await this.supabase
-      .from('sectores')
-      .select('id, nombre, posicion')
-      .order('posicion', { ascending: true })
-      .limit(1)
-      .single();
-
-    if (firstSector) {
-      console.log('initializeFirstTurn: First sector found:', firstSector);
-      await this.createNextTurn(null, firstSector.id, dias, 'Inicio del sistema', 'Automática', new Date());
-    }
-    console.log('initializeFirstTurn: Finished.');
-  }
 
   async createNextTurn(currentTurn: Turno | null, sectorId: number, dias: number, justificacion: string = 'Rotación automática', tipo: string = 'Automática', rotationDate: Date = new Date()): Promise<void> {
     console.log(`createNextTurn: Starting for sector ${sectorId}...`);
@@ -307,6 +220,100 @@ export class SupabaseService {
       return true;
     }
     return false;
+  }
+
+  async pausarTurno(justificacion: string): Promise<boolean> {
+    const currentTurn = await this.getCurrentTurn();
+    if (!currentTurn) return false;
+
+    // Guardar en el histórico
+    const { error: histError } = await this.supabase.from('historico_turnos').insert({
+      turno_id: currentTurn.id,
+      sector_nombre: currentTurn.sectores?.nombre || '',
+      descripcion: justificacion,
+      fecha_inicio: currentTurn.fecha_inicio,
+      fecha_fin: currentTurn.fecha_fin,
+      tipo: 'Pausa'
+    });
+
+    if (histError) {
+      console.error('Error insertando histórico de pausa:', histError);
+      return false;
+    }
+
+    // Actualizar estado a 'inactivo'
+    const { error: updateError } = await this.supabase
+      .from('turno')
+      .update({ estado: 'inactivo' })
+      .eq('id', currentTurn.id);
+
+    if (updateError) {
+      console.error('Error pausando turno:', updateError);
+      return false;
+    }
+
+    return true;
+  }
+
+  async reanudarTurno(justificacion: string): Promise<boolean> {
+    const currentTurn = await this.getCurrentTurn();
+    if (!currentTurn) return false;
+
+    const actualDias = await this.getConfigDias();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const newFechaFin = new Date(today);
+    newFechaFin.setDate(newFechaFin.getDate() + actualDias - 1);
+
+    const newFechaFinStr = newFechaFin.toISOString().split('T')[0];
+
+    // Guardar en el histórico
+    const { error: histError } = await this.supabase.from('historico_turnos').insert({
+      turno_id: currentTurn.id,
+      sector_nombre: currentTurn.sectores?.nombre || '',
+      descripcion: justificacion,
+      fecha_inicio: currentTurn.fecha_inicio,
+      fecha_fin: newFechaFinStr,
+      tipo: 'Reanudación'
+    });
+
+    if (histError) {
+      console.error('Error insertando histórico de reanudación:', histError);
+      return false;
+    }
+
+    // Actualizar turno a 'activo' y nueva fecha fin
+    const { error: updateError } = await this.supabase
+      .from('turno')
+      .update({ 
+        estado: 'activo',
+        fecha_fin: newFechaFinStr
+      })
+      .eq('id', currentTurn.id);
+
+    if (updateError) {
+      console.error('Error reanudando turno:', updateError);
+      return false;
+    }
+
+    return true;
+  }
+
+  async getUltimaJustificacionPausa(turnoId: number): Promise<string> {
+    const { data, error } = await this.supabase
+      .from('historico_turnos')
+      .select('descripcion')
+      .eq('turno_id', turnoId)
+      .eq('tipo', 'Pausa')
+      .order('fecha_cambio', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) {
+      return '';
+    }
+    return data.descripcion;
   }
 
   async getHistorico(startDate: Date, endDate: Date): Promise<Historico[]> {
